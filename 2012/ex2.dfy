@@ -1,6 +1,148 @@
 ghost predicate is_power_of_2(n: nat)
 {n > 0 && (n == 1 || (exists nd2: nat {:trigger} :: nd2 < n && is_power_of_2(nd2) && n == nd2 * 2))}
 
+ghost predicate is_2_to_the_power_of(n: nat, p: nat)
+{is_power_of_2(n) && (p == 0 ==> n == 1) && (p > 0 ==> is_2_to_the_power_of(n / 2, p - 1))}
+
+function log_of_power_of_2(n: nat) : (l: nat)
+	requires is_power_of_2(n)
+//
+	ensures is_2_to_the_power_of(n, l)
+{
+	if n == 1 then
+		0
+	else
+		1 + log_of_power_of_2(n / 2)
+}
+
+function two_to_the_power_of(p: nat) : (n: nat)
+//
+	ensures is_2_to_the_power_of(n, p)
+{
+	if p == 0 then
+		1
+	else
+		2 * two_to_the_power_of(p - 1)
+}
+
+lemma {:induction false} exponent_logarithm_identity(a: nat)
+	requires is_power_of_2(a)
+//
+	ensures a == two_to_the_power_of(log_of_power_of_2(a))
+{
+	if a > 1 {
+		var ad2: nat :| ad2 < a && is_power_of_2(ad2) && a == ad2 * 2;
+		exponent_logarithm_identity(ad2);
+		var log_ad2: nat := log_of_power_of_2(ad2);
+		var ad2': nat := two_to_the_power_of(log_ad2);
+		calc == {
+			a;
+			ad2 * 2;
+			ad2' * 2;
+			two_to_the_power_of(log_ad2) * 2;
+			two_to_the_power_of(1 + log_ad2 - 1) * 2;
+			two_to_the_power_of(1 + log_ad2);
+			{assert 1 + log_ad2 == log_of_power_of_2(a) by {
+				assert log_of_power_of_2(ad2 * 2) == 1 + log_of_power_of_2(ad2) by {
+					multiplication_then_division_cancel(ad2, 2);
+				}
+				assert ad2 * 2 == a;
+			}}
+			two_to_the_power_of(log_of_power_of_2(a));
+		}
+	}
+}
+
+lemma {:induction false} logarithm_exponent_identity(a: nat)
+//
+	ensures a == log_of_power_of_2(two_to_the_power_of(a))
+{
+	if a > 1 {
+		var am1: nat := a - 1;
+		logarithm_exponent_identity(am1);
+		var two_pow_am1: nat := two_to_the_power_of(am1);
+		var am1': nat := log_of_power_of_2(two_pow_am1);
+		calc == {
+			a;
+			am1 + 1;
+			am1' + 1;
+			log_of_power_of_2(two_pow_am1) + 1;
+			{ multiplication_then_division_cancel(two_pow_am1, 2); }
+			log_of_power_of_2(two_pow_am1 * 2 / 2) + 1;
+			log_of_power_of_2(two_pow_am1 * 2 / 2 * 2);
+			{
+				assert two_pow_am1 * 2 == two_pow_am1 * 2 / 2 * 2 + (two_pow_am1 * 2) % 2;
+				assert (two_pow_am1 * 2) % 2 == 0 by {
+					modulo_persists_while_steps_mul_by_y(0, two_pow_am1, 2);
+				}
+			}
+			log_of_power_of_2(two_pow_am1 * 2);
+			{assert two_pow_am1 * 2 == two_to_the_power_of(a) by {
+				assert two_to_the_power_of(am1 + 1) == two_to_the_power_of(am1) * 2;
+				// assert am1 + 1 == a;
+			}}
+			log_of_power_of_2(two_to_the_power_of(a));
+		}
+	}
+}
+
+lemma {:induction false} logarithmic_product_rule(a: nat, b: nat)
+	requires a_is_power_of_2: is_power_of_2(a)
+	requires b_is_power_of_2: is_power_of_2(b)
+//
+	ensures
+		assert is_power_of_2(a * b) by { closure_under_multiplication_between_powers_of_2(a, b); }
+		log_of_power_of_2(a * b) == log_of_power_of_2(a) + log_of_power_of_2(b)
+{
+	assert a_mul_b_is_power_of_2: is_power_of_2(a * b) by {
+		closure_under_multiplication_between_powers_of_2(a, b) by {
+			reveal a_is_power_of_2;
+			reveal b_is_power_of_2;
+		}
+	}
+	if a == 1 {
+		assert log_of_power_of_2(a * b) == log_of_power_of_2(b) by {
+			reveal a_mul_b_is_power_of_2;
+			reveal b_is_power_of_2;
+			assert a * b == b;
+		}
+		assert log_of_power_of_2(a) + log_of_power_of_2(b) == log_of_power_of_2(b) by {
+			reveal a_is_power_of_2;
+			reveal b_is_power_of_2;
+			assert log_of_power_of_2(a) == 0;
+		}
+	} else {
+		var ad2: nat :| ad2 < a && is_power_of_2(ad2) && a == ad2 * 2 by {
+			reveal a_is_power_of_2;
+		}
+		assert log_of_power_of_2(a) == 2 * log_of_power_of_2(ad2);
+		assume false;
+	}
+}
+
+lemma {:induction false} idk(a: nat, b: nat)
+//
+	ensures two_to_the_power_of(a + b) == two_to_the_power_of(a) * two_to_the_power_of(b)
+
+lemma strict_comparison_between_powers_of_2(a: nat, b: nat)
+	requires is_power_of_2(a)
+	requires is_power_of_2(b)
+//
+	ensures a < b <==> a <= b / 2
+	ensures a > b <==> a >= b * 2
+{}
+
+lemma monotonicity_under_logarithmization_between_powers_of_2(a: nat, b: nat)
+	requires is_power_of_2(a)
+	requires is_power_of_2(b)
+//
+	ensures log_of_power_of_2(a) < log_of_power_of_2(b) ==> a <= b / 2
+	ensures a < b ==> log_of_power_of_2(a) < log_of_power_of_2(b)
+	ensures log_of_power_of_2(a) == log_of_power_of_2(b) <==> a == b
+	ensures a > b ==> log_of_power_of_2(a) > log_of_power_of_2(b)
+	ensures log_of_power_of_2(a) > log_of_power_of_2(b) ==> a >= b * 2
+{}
+
 lemma {:isolate_assertions} power_of_2_divides_bigger_power_of_2(a: nat, b: nat)
 	requires a >= b
 	requires is_power_of_2(a)
@@ -46,17 +188,24 @@ lemma {:isolate_assertions} power_of_2_divides_bigger_power_of_2(a: nat, b: nat)
 		// assert d' == 0 && r == 0;
 	}
 }
-lemma closure_under_division_of_is_power_of_2(a: nat, b: nat)
-	requires is_power_of_2(a)
-	requires is_power_of_2(b)
-	requires a >= b
+lemma {:induction false} closure_under_division_between_powers_of_2(a: nat, b: nat)
+	decreases a - b
+	requires a_is_power_of_2: is_power_of_2(a)
+	requires b_is_power_of_2: is_power_of_2(b)
+	requires a_ge_b: a >= b
 //
 	ensures is_power_of_2(a / b)
 {
+	var acpm_t: (nat, nat, nat) -> bool := (a, b, c) => true;
+	assert forall a: nat, b: nat, c: nat {:trigger acpm_t(a, b, c)} :: a * (b * c) == a * c * b;
 	var a': nat := a;
+	assert is_power_of_2(a') by { reveal a_is_power_of_2; }
 	var b': nat := b;
+	assert is_power_of_2(b') by { reveal b_is_power_of_2; }
+	assert a' >= b' by { reveal a_ge_b; }
 	var factor: nat := 1;
 	while b' != 1
+		decreases b'
 		invariant is_power_of_2(a')
 		invariant is_power_of_2(b')
 		invariant a' >= b'
@@ -65,73 +214,105 @@ lemma closure_under_division_of_is_power_of_2(a: nat, b: nat)
 		invariant is_power_of_2(factor)
 	{
   	var a'd2: nat :| a'd2 < a' && is_power_of_2(a'd2) && a' == a'd2 * 2;
+		assert a == a'd2 * (factor * 2) by {
+			calc == {
+				a'd2 * (factor * 2);
+				a'd2 * 2 * factor;
+				{ assert acpm_t(a'd2, factor, 2); }
+				a' * factor;
+			}
+		}
 		var b'd2: nat :| b'd2 < b' && is_power_of_2(b'd2) && b' == b'd2 * 2;
+		assert b == b'd2 * (factor * 2) by {
+			calc == {
+				b'd2 * (factor * 2);
+				b'd2 * 2 * factor;
+				{ assert acpm_t(b'd2, factor, 2); }
+				b' * factor;
+			}
+		}
 		a' := a'd2;
 		b' := b'd2;
 		factor := factor * 2;
 	}
-	assert a / b == a' by {
+	assert {:focus} a / b == a' by {
 		assert a / b == a' * b / b by {
 			assert a == a' * b by {
 				assert b == factor;
 			}
-			var t: (nat, nat, nat) -> bool := (x, y, z) => true;
-			assert forall x: nat, y: nat, z: nat {:trigger t(x, y, z)} :: z > 0 && x == y ==> x / z == y / z;
-			assert t(a, a' * b, b);
 		}
-		var t: (nat, nat) -> bool := (x, y) => true;
-		forall x: nat, y: nat {:trigger t(x, y)} | y > 0
-			ensures x == x * y / y
-		{
-			assert x * y == ((x * y) / y) * y by {
-				assert x * y == ((x * y) / y) * y + (x * y) % y;
-				assert (x * y) % y == 0 by {
-					modulo_persists_while_steps_mul_by_y(0, x, y);
-				}
-			}
-			assert x * y == ((x * y) / y) * y ==> x == (x * y) / y by {
-				monotonicity_under_inverse_of_plain_multiplication(x, (x * y) / y, y);
+		multiplication_then_division_cancel(a', b);
+	}
+}
+
+lemma {:induction false} closure_under_multiplication_between_powers_of_2(a: nat, b: nat)
+	requires a_is_power_of_2: is_power_of_2(a)
+	requires b_is_power_of_2: is_power_of_2(b)
+//
+	ensures is_power_of_2(a * b)
+{
+	if a == 1 {
+		assert a * b == b;
+		reveal b_is_power_of_2;
+	} else {
+		var ad2: nat :| ad2 < a && is_power_of_2(ad2) && a == ad2 * 2 by {
+			reveal a_is_power_of_2;
+		}
+		closure_under_multiplication_between_powers_of_2(ad2, 2 * b) by {
+			assert is_power_of_2(2 * b) by {
+				reveal b_is_power_of_2;
 			}
 		}
-		assert t(a', b);
+		calc == {
+			a * b;
+			ad2 * 2 * b;
+			ad2 * (2 * b);
+		}
 	}
 }
 
 function sum(a: seq<int>): (s: int)
 {if |a| == 0 then 0 else a[0] + sum(a[1..])}
 
-lemma additivity_of_sum(a: seq<int>, start: nat, mid: nat, end: nat)
-	decreases mid - start
+lemma {:induction false} additivity_of_sum_over_consecutive_slices_seq(a: seq<int>, start: nat, mid: nat, end: nat)
 	requires start <= mid <= end <= |a|
 //
 	ensures sum(a[start..end]) == sum(a[start..mid]) + sum(a[mid..end])
 {
-	if start < mid {
-		assert sum(a[start..end]) == a[start] + sum(a[start + 1..mid]) + sum(a[mid..end]) by {
-			additivity_of_sum(a, start + 1, mid, end);
-			assert sum(a[start..end]) == a[start] + sum(a[start + 1..end]);
+	assert a[start..end] == a[start..mid] + a[mid..end];
+	additivity_of_sum(a[start..mid], a[mid..end]);
+}
+
+lemma {:induction false} additivity_of_sum(a: seq<int>, b: seq<int>)
+	decreases |a|, |b|
+//
+	ensures sum(a + b) == sum(a) + sum(b)
+{
+	if |a| > 0 {
+		assert sum(a + b) == a[0] + sum(a[1..]) + sum(b) by {
+			assert sum(a + b) == (a + b)[0] + sum(a[1..]) + sum(b) by {
+				assert sum(a + b) == (a + b)[0] + sum(a[1..] + b) by {
+					// assert sum(a + b) == (a + b)[0] + sum((a + b)[1..]); // it's quicker if you let the prover take this step on its own
+					assert a[1..] + b == (a + b)[1..];
+				}
+				assert sum(a[1..] + b) == sum(a[1..]) + sum(b) by {
+					additivity_of_sum(a[1..], b);
+				}
+			}
+			assert (a + b)[0] == a[0];
+		}
+	} else {
+		calc == {
+			sum([] + b);
+			{ assert [] + b == b; }
+			sum(b);
+			0 + sum(b);
+			sum([]) + sum(b);
 		}
 	}
 }
 
-lemma add_modulo(x: nat, y: nat, z: nat)
-	requires z < y
-//
-	ensures (x * y + z) % y == z
-{
-	var d: nat := (x * y + z) / y;
-	var r: nat := (x * y + z) % y;
-	var d': nat := d;
-	var x': nat := x;
-	while d' > 0
-		invariant d' * y + r == x' * y + z
-	{
-		d' := d' - 1;
-		x' := x' - 1;
-	}
-}
-
-lemma {:isolate_assertions} modulo_persists_while_steps_mul_by_y(x: int, y: int, z: nat)
+lemma {:induction false} modulo_persists_while_steps_mul_by_y(x: int, y: int, z: nat)
 	requires z > 0
 //
 	ensures (x + y * z) % z == x % z
@@ -191,88 +372,163 @@ lemma {:isolate_assertions} modulo_persists_while_steps_mul_by_y(x: int, y: int,
 	}
 }
 
-lemma monotonicity_under_plain_multiplication(a: nat, b: nat, c: nat)
-//
-	ensures a <= b ==> a * c <= b * c
-	ensures a == b ==> a * c == b * c
-	ensures a >= b ==> a * c >= b * c
-{}
-
-lemma monotonicity_under_inverse_of_plain_multiplication(a: nat, b: nat, c: nat)
+lemma {:induction false} monotonicity_under_plain_multiplication(a: int, b: int, c: int)
 	requires c > 0
 //
-	ensures a * c <= b * c ==> a <= b
-	ensures a * c == b * c ==> a == b
-	ensures a * c >= b * c ==> a >= b
-{
-	if a * c <= b * c {
-		// assert (b * c - a * c) / c >= 0 by {
-		// 	assert b * c - a * c >= 0;
-		// 	assert b * c - a * c == (b * c - a * c) / c * c by {
-		// 		assert b * c - a * c == (b * c - a * c) / c * c + (b * c - a * c) % c;
-		// 		assert (b * c - a * c) % c == 0 by {
-		// 			assert ((b - a) * c) % c == 0 by {
-		// 				modulo_persists_while_steps_mul_by_y(0, b - a, c);
-		// 			}
-		// 		}
-		// 	}
-		// }
-		assert b - a >= 0;
-	}
-}
+	ensures a < b <==> a * c < b * c
+	ensures a == b <==> a * c == b * c
+	ensures a > b <==> a * c > b * c
+{}
 
-lemma multiplicative_inverse_property_between_powers_of_2(a: nat, b: nat)
+lemma {:induction false} monotonicity_under_plain_division(a: int, b: int, c: int)
+	requires c > 0
+//
+	ensures a - a % c < b - b % c <==> a / c < b / c
+	ensures a == b ==> a / c == b / c
+	ensures a / c == b / c ==> a - a % c == b - b % c
+	ensures a - a % c > b - b % c <==> a / c > b / c
+{}
+
+lemma {:induction false} multiplicative_inverse_property_between_powers_of_2(a: nat, b: nat)
 	requires is_power_of_2(a)
 	requires is_power_of_2(b)
 	requires a >= b
 //
 	ensures a / b * b == a
 {
+	assert a == a / b * b + a % b;
 	assert a % b == 0 by {
 		power_of_2_divides_bigger_power_of_2(a, b);
 	}
 }
 
+lemma {:induction false} multiplication_then_division_cancel(a: int, b: int)
+	requires b > 0
+//
+	ensures a * b / b == a
+{
+	assert (a * b) % b == 0 by {
+		modulo_persists_while_steps_mul_by_y(0, a, b);
+	}
+}
+
 // upsweep_iter helper functions
-	ghost predicate RAW_last_position_is_sum_of_old_elements(original_elements: seq<int>, a: seq<int>, start: nat, space: nat)
+	ghost predicate last_position_is_sum_of_old_elements_rec(original_elements: seq<int>, a: seq<int>, lower_bound: nat, space: nat)
+		decreases space
 		requires |original_elements| == |a|
 		requires is_power_of_2(space)
 		requires is_power_of_2(|a|)
-		requires space <= |a|
-		requires start <= |a| / space - 1
-		requires start * space + space <= |a|
+		requires lower_bound + space * 2 <= |a|
 	{
-		a[start * space + space - 1] == sum(original_elements[start * space..start * space + space])
+		a[lower_bound + space - 1] == sum(original_elements[lower_bound..lower_bound + space])
+		&&
+		(space > 1 ==> (
+			var spaced2: nat :| spaced2 < space && is_power_of_2(spaced2) && space == spaced2 * 2;
+			last_position_is_sum_of_old_elements_rec(original_elements, a, lower_bound, spaced2)
+			&&
+			last_position_is_sum_of_old_elements_rec(original_elements, a, lower_bound + space, spaced2)
+		))
 	}
+
+	lemma section_end_within_bounds(a: seq<int>, start: nat, space: nat)
+		requires is_power_of_2(space)
+		requires is_power_of_2(|a|)
+		requires start < |a| / space
+	//
+		ensures start * space + space <= |a|
+	{
+		monotonicity_under_plain_multiplication(start, |a| / space - 1, space);
+		multiplicative_inverse_property_between_powers_of_2(|a|, space);
+	}
+
 	ghost predicate last_position_is_sum_of_old_elements(original_elements: seq<int>, a: seq<int>, start: nat, space: nat)
 		requires |original_elements| == |a|
 		requires is_power_of_2(space)
 		requires is_power_of_2(|a|)
-		requires space <= |a|
-		requires start <= |a| / space - 1
+		requires start < |a| / space
 	{
-		assert start * space + space <= |a| by {
-			// assert start * space <= |a| / space * space - space by {
-				monotonicity_under_plain_multiplication(start, |a| / space - 1, space);
-			// }
-			multiplicative_inverse_property_between_powers_of_2(|a|, space);
-		}
-		RAW_last_position_is_sum_of_old_elements(original_elements, a, start, space)
+		section_end_within_bounds(a, start, space);
+		a[start * space + space - 1] == sum(original_elements[start * space..start * space + space])
+		&&
+		(space > 1 ==> (
+			var spaced2: nat :| spaced2 < space && is_power_of_2(spaced2) && space == spaced2 * 2;
+			assert start * space + spaced2 * 2 <= |a|;
+			last_position_is_sum_of_old_elements_rec(original_elements, a, start * space, spaced2)
+		))
 	}
 
-	ghost predicate sums_s_to_s_until_n_are_computed(original_elements: seq<int>, a: seq<int>, space: nat, lower_bound: nat, upper_bound: int)
+	lemma {:induction false} if_last_pos_is_sum_of_old_elements_for_a_then_it_is_for_b_with_equal_sequence(original_elements: seq<int>, a: seq<int>, b: seq<int>, start: nat, space: nat)
+		requires |original_elements| == |a| == |b|
+		requires is_power_of_2(space)
+		requires is_power_of_2(|a|)
+		requires start < |a| / space
+		requires
+			assert start * space + space <= |a| by { section_end_within_bounds(a, start, space); }
+			last_position_is_sum_of_old_elements(original_elements, a, start, space)
+		requires a[start * space..start * space + space] == b[start * space..start * space + space]
+	//
+		ensures last_position_is_sum_of_old_elements(original_elements, b, start, space)
+	{
+		if space > 1 {
+
+			assume false;
+		}
+	}
+
+	ghost predicate sums_s_to_s_until_n_are_computed(original_elements: seq<int>, a: seq<int>, space: nat, lower_bound: nat, upper_bound: nat)
 		requires |original_elements| == |a|
 		requires is_power_of_2(space)
 		requires is_power_of_2(|a|)
-		requires space <= |a|
-		requires lower_bound <= |a| / space
 		requires upper_bound <= |a| / space
 	{
-		forall start: nat {:trigger} :: lower_bound <= start < upper_bound ==>
-			last_position_is_sum_of_old_elements(original_elements, a, start, space)
+		(forall start: nat {:trigger} :: lower_bound <= start < upper_bound ==>
+			last_position_is_sum_of_old_elements(original_elements, a, start, space))
+		// &&
+		// (space > 1 ==>
+		// var space_div_2: nat :| space_div_2 < space && is_power_of_2(space_div_2) && space == space_div_2 * 2;
+		// upper_bound_within_bounds_for_usbsequent_iterations(a, upper_bound, space_div_2);
+		// sums_s_to_s_until_n_are_computed(original_elements, a, space_div_2, lower_bound * 2, upper_bound * 2, false))
+	}
+	
+	//
+		// s: 8, 3 <= start < 6 => 3, 4, 5 => [24..32], [32..40], [40..48] => 3, 4, 5
+		// s: 4, 6 <= start < 12 => 6, 7, 8, 9, 10, 11 =>
+		//			[24..28], [28..32], [32..36], [36..40], [40..44], [44..48] =>
+		//			[24..28], [32..36], [40..44] => 6, 8, 10
+		// s: 2, 12 <= start < 24 => 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23 =>
+		//			[24..26], [26..28], [28..30], [30..32], [32..34], [34..36],
+		//			[36..38], [38..40], [40..42], [42..44], [44..46], [46..48] =>
+		//			[24..26], [28..30], [32..34], [36..38], [40..42], [44..46] => 12, 14, 16, 18, 20, 22
+		// s:1, 24 <= start < 48 => 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
+		//													36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47 =>
+		//			[24..25], [25..26], [26..27], [27..28], [28..29], [29..30], [30..31], [31..32],
+		//			[32..33], [33..34], [34..35], [35..36], [36..37], [37..38], [38..39], [39..40],
+		//			[40..41], [41..42], [42..43], [43..44], [44..45], [45..46], [46..47], [47..48] =>
+		//			[24..25], [26..27], [28..29], [30..31], [32..33], [34..35],
+		//			[36..37], [38..39], [40..41], [42..43], [44..45], [46..47] =>
+		//			24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46
+
+	lemma sums_of_1_are_computed_at_the_beginning(original_elements: seq<int>, a: array<int>)
+		requires original_elements == a[..]
+		requires is_power_of_2(a.Length)
+	//
+		ensures sums_s_to_s_until_n_are_computed(original_elements, a[..], 1, 0, a.Length)
+	{
+	  forall start: nat {:trigger} | 0 <= start < a.Length
+			ensures last_position_is_sum_of_old_elements(original_elements, a[..], start, 1)
+		{}
 	}
 
-	lemma RAW_acc_bounds_within_loop(left: nat, acc: nat, a: array<int>, space: nat)
+	lemma {:induction false} sums_s_to_s_are_computed(original_elements: seq<int>, a: array<int>, space: nat, lub: nat)
+		requires |original_elements| == a.Length
+		requires is_power_of_2(space)
+		requires is_power_of_2(a.Length)
+		requires lub <= a.Length / space
+	//
+		ensures sums_s_to_s_until_n_are_computed(original_elements, a[..], space, lub, lub)
+	{}
+
+	lemma {:induction false} RAW_acc_bounds_within_loop(left: nat, acc: nat, a: array<int>, space: nat)
 		requires left == acc * space * 2 + space - 1
 		requires left < a.Length
 		requires a.Length % (space * 2) == 0
@@ -285,533 +541,647 @@ lemma multiplicative_inverse_property_between_powers_of_2(a: nat, b: nat)
 		// 	}
 		// }
 	}
-	lemma idk(a: nat, b: nat, c: nat)
-		requires b > 0
-		requires c > 0
-		ensures a / (b * c) == a / b / c
-	{
-		var lhs: nat := a / (b * c);
-		var adb: nat := a / b;
-		var rhs: nat := adb / c;
-
-    assert lhs * (b * c) <= a < (lhs + 1) * (b * c);
-    
-    assert adb * b <= a < (adb + 1) * b;
-
-    assert rhs * c <= adb < (rhs + 1) * c;
-		assume false;
-		// ghost var d1 := a / (b * c);
-    // ghost var d2 := a / b;
-    // ghost var d3 := d2 / c;
-
-    // // Unpack the definition of division for a / (b * c)
-    // assert d1 * (b * c) <= a < (d1 + 1) * (b * c);
-    
-    // // Unpack the definition of division for a / b
-    // assert d2 * b <= a < (d2 + 1) * b;
-
-    // // Unpack the definition of division for d2 / c
-    // assert d3 * c <= d2 < (d3 + 1) * c;
-
-    // // Relate the results
-    // assert d1 == d3 by {
-    //     // Use the properties of integer division to show equivalence
-    //     assert d1 * (b * c) == d3 * (b * c);
-    // }
-	}
-	lemma acc_bounds_within_loop(left: nat, acc: nat, a: array<int>, space: nat)
-		requires left == acc * space * 2 + space - 1
-		requires left < a.Length
-		requires is_power_of_2(a.Length)
-		requires is_power_of_2(space * 2)
-		requires space * 2 <= a.Length
+	lemma {:induction false} acc_bounds_within_loop(left: nat, acc: nat, a: array<int>, space: nat)
+		requires left_wrt_acc: left == acc * space * 2 + space - 1
+		requires left_within_bounds: left < a.Length
+		requires len_is_power_of_2: is_power_of_2(a.Length)
+		requires space_mul_2_is_power_of_2: is_power_of_2(space * 2)
+		requires space_mul_2_le_len: space * 2 <= a.Length
 	//
 		ensures acc <= a.Length / (space * 2) - 1
+		ensures acc * space <= a.Length / 2 - space
 		ensures acc * 2 <= a.Length / space - 2
+		ensures acc * space * 2 <= a.Length - space * 2
 	{
-		RAW_acc_bounds_within_loop(left, acc, a, space) by {	
-			assert a.Length % (space * 2) == 0 by {
-				power_of_2_divides_bigger_power_of_2(a.Length, space * 2);
-			}
+		assert space_mul_2_gt_0: (space * 2) > 0 by {
+			reveal space_mul_2_is_power_of_2;
 		}
-		assert acc * 2 <= a.Length / (space * 2) * 2 - 2 by {
-			assert acc <= a.Length / (space * 2) - 1;
-		}
-		calc == {
-			a.Length / (space * 2) * 2 - 2;
-			{assume false;}
-			a.Length / space / 2 * 2 - 2;
-			{assert a.Length / space == a.Length / space / 2 * 2 by {
-				multiplicative_inverse_property_between_powers_of_2(a.Length / space, 2) by {
-					assert is_power_of_2(a.Length / space) by {
-						closure_under_division_of_is_power_of_2(a.Length, space);
-					}
-					assert is_power_of_2(2) by {
-						assert is_power_of_2(1);
+		assert first_acc_bound: acc <= a.Length / (space * 2) - 1 by {
+			reveal space_mul_2_gt_0;
+			RAW_acc_bounds_within_loop(left, acc, a, space) by {
+				assert a.Length % (space * 2) == 0 by {
+					power_of_2_divides_bigger_power_of_2(a.Length, space * 2) by {
+						reveal len_is_power_of_2;
+						reveal space_mul_2_is_power_of_2;
+						reveal space_mul_2_le_len;
 					}
 				}
-			}}
-			a.Length / space - 2;
+				reveal left_wrt_acc;
+				reveal left_within_bounds;
+			}
 		}
+		assert fourth_acc_bound: acc * space * 2 <= a.Length - space * 2 by {
+			assert acc * (space * 2) <= (a.Length / (space * 2) - 1) * (space * 2) by {
+				monotonicity_under_plain_multiplication(acc, a.Length / (space * 2) - 1, space * 2) by {
+					reveal space_mul_2_le_len;
+				}
+				reveal first_acc_bound;
+			}
+			calc == {
+				(a.Length / (space * 2) - 1) * (space * 2);
+				a.Length / (space * 2) * (space * 2) - space * 2;
+				{
+					multiplicative_inverse_property_between_powers_of_2(a.Length, space * 2) by {
+						reveal len_is_power_of_2;
+						reveal space_mul_2_is_power_of_2;
+						reveal space_mul_2_le_len;
+					}
+				}
+				a.Length - space * 2;
+			}
+			assert acc * space * 2 == acc * (space * 2) by {
+				var t: (nat, nat, nat) -> bool := (a, b, c) => true;
+				assert forall a: nat, b: nat, c: nat {:trigger t(a, b, c)} :: a * b * c == a * (b * c);
+				assert t(acc, space, 2);
+			}
+		}
+		assert second_acc_bound: acc * space <= a.Length / 2 - space by {
+			assert (acc * space * 2) / 2 <= (a.Length - space * 2) / 2 by {
+				reveal fourth_acc_bound;
+				monotonicity_under_plain_division(acc * space * 2, a.Length - space * 2, 2);
+			}
+		}
+		assert third_acc_bound: acc * 2 <= a.Length / space - 2 by {
+			assert (acc * space * 2) / space <= (a.Length - space * 2) / space by {
+				reveal fourth_acc_bound;
+				assert (acc * space * 2) % space == 0 by {
+					assert acc * space * 2 == (acc * 2) * space;
+					modulo_persists_while_steps_mul_by_y(0, acc * 2, space);
+				}
+				assert (a.Length - space * 2) % space == 0 by {
+					modulo_persists_while_steps_mul_by_y(a.Length, -2, space);
+					assert a.Length % space == 0 by {
+						power_of_2_divides_bigger_power_of_2(a.Length, space) by {
+							reveal len_is_power_of_2;
+							reveal space_mul_2_is_power_of_2;
+						}
+					}
+				}
+				monotonicity_under_plain_division(acc * space * 2, a.Length - space * 2, space);
+			}
+			assert (acc * space * 2) / space == acc * 2 by {
+				multiplication_then_division_cancel(acc * 2, space);
+				assert (acc * space * 2) / space == (acc * 2) * space / space;
+			}
+			assert (a.Length - space * 2) / space == a.Length / space - 2 by {
+				calc == {
+					(a.Length - space * 2) / space;
+					{
+						var t: (nat, nat, nat) -> bool := (a, b, c) => true;
+						forall a: nat, b: nat, c: nat {:trigger t(a, b, c)} | c > 0 && a % c == 0 && b % c == 0
+							ensures (a - b) / c == a / c - b / c
+						{
+							assert (a / c * c - b / c * c) / c == a / c - b / c by {
+								assert (a / c * c - b / c * c) == (a / c - b / c) * c;
+								multiplication_then_division_cancel(a / c - b / c, c);
+							}
+							assert a == a / c * c;
+							assert b == b / c * c;
+						}
+						reveal len_is_power_of_2;
+						reveal space_mul_2_is_power_of_2;
+						power_of_2_divides_bigger_power_of_2(a.Length, space);
+						power_of_2_divides_bigger_power_of_2(space * 2, space);
+						assert t(a.Length, space * 2, space);
+					}
+					a.Length / space - (space * 2) / space;
+					{ multiplication_then_division_cancel(2, space); }
+					a.Length / space - 2;
+				}
+			}
+		}
+		reveal first_acc_bound;
+		reveal second_acc_bound;
+		reveal third_acc_bound;
+		reveal fourth_acc_bound;
 	}
 
-	lemma left_in_loop_lt_left_outside_loop(left: nat, acc: nat, a: array<int>, space: nat)
-		requires left == acc * space * 2 + space - 1
-		requires left < a.Length
-		requires is_power_of_2(a.Length)
-		requires is_power_of_2(space * 2)
-		requires space * 2 <= a.Length
+	lemma {:induction false} left_bounds_within_loop(left: nat, acc: nat, a: array<int>, space: nat)
+		requires left_wrt_acc: left == acc * space * 2 + space - 1
+		requires left_within_bounds: left < a.Length
+		requires len_is_power_of_2: is_power_of_2(a.Length)
+		requires space_mul_2_is_power_of_2: is_power_of_2(space * 2)
+		requires space_mul_2_le_len: space * 2 <= a.Length
 	//
 		ensures left <= a.Length - space - 1
 	{
 		assert acc * space * 2 + space - 1 <= a.Length - space - 1 by {
 			assert acc * space * 2 <= a.Length - space * 2 by {
+				assert space * 2 > 0 by {
+					reveal space_mul_2_is_power_of_2;
+				}
 				assert acc <= a.Length / (space * 2) - 1 by {
-					acc_bounds_within_loop(left, acc, a, space);
+					acc_bounds_within_loop(left, acc, a, space) by {
+						reveal left_wrt_acc;
+						reveal left_within_bounds;
+						reveal len_is_power_of_2;
+						reveal space_mul_2_is_power_of_2;
+						reveal space_mul_2_le_len;
+					}
 				}
 				monotonicity_under_plain_multiplication(acc, a.Length / (space * 2) - 1, space * 2);
-				multiplicative_inverse_property_between_powers_of_2(a.Length, space * 2);
+				multiplicative_inverse_property_between_powers_of_2(a.Length, space * 2) by {
+					reveal len_is_power_of_2;
+					reveal space_mul_2_is_power_of_2;
+					reveal space_mul_2_le_len;
+				}
 			}
 		}
+		reveal left_wrt_acc;
 	}
 
-	lemma {:isolate_assertions} calculated_sums_for_currect_iteration(original_elements: seq<int>, before: seq<int>, a: array<int>, space: nat, acc: nat)
-		requires |original_elements| == |before| == a.Length
-		requires is_power_of_2(space)
-		requires is_power_of_2(a.Length)
-		requires space <= a.Length
-		requires acc <= a.Length / space - 1
-		requires acc * space <= a.Length
-		requires sums_s_to_s_until_n_are_computed(original_elements, before, space, 0, acc)
+
+	lemma {:induction false} if_equal_for_slice_then_equal_for_subslice(a: seq<int>, b: array<int>, lb: nat, ilb: nat, iub: nat, ub: nat)
+		requires |a| == b.Length
+		requires 0 <= lb <= ilb <= iub <= ub <= |a|
+		requires a[lb..ub] == b[lb..ub]
+	//
+		ensures a[ilb..iub] == b[ilb..iub]
+	{
+		forall i: nat {:trigger} | ilb <= i < iub
+			ensures a[i] == b[i]
+		{}
+	}
+
+	lemma {:induction false} calculated_sums_for_currect_iteration(original_elements: seq<int>, before: seq<int>, a: array<int>, space: nat, acc: nat)
+		requires lengths_are_equal: |original_elements| == |before| == a.Length
+		requires space_is_power_of_2: is_power_of_2(space)
+		requires len_is_power_of_2: is_power_of_2(a.Length)
+		requires space_le_len: space <= a.Length
+		requires first_acc_bound: acc <= a.Length / space - 1
+		requires computed_until_acc: sums_s_to_s_until_n_are_computed(original_elements, before, space, 0, acc)
 		requires unchanged_until_acc_times_space: before[..acc * space] == a[..acc * space]
 		requires last_position_is_sum_of_old_elements(original_elements, a[..], acc, space)
 	//
 		ensures sums_s_to_s_until_n_are_computed(original_elements, a[..], space, 0, acc + 1)
 	{
-		forall start: nat | 0 <= start < acc + 1
-			ensures last_position_is_sum_of_old_elements(original_elements, a[..], start, space)
+		assert space_gt_0: space > 0 by {
+			reveal space_is_power_of_2;
+		}
+		forall start: nat {:trigger} | 0 <= start < acc + 1
+			ensures
+				reveal lengths_are_equal;
+				reveal first_acc_bound;
+				reveal space_is_power_of_2;
+				reveal len_is_power_of_2;
+				reveal space_le_len;
+				last_position_is_sum_of_old_elements(original_elements, a[..], start, space)
 		{
 			if start < acc {
-				assert before[start * space + space - 1] == a[start * space + space - 1] by {
-					assert start * space + space - 1 < acc * space by {
-						assert start * space <= acc * space - space by {
-							// assert start <= acc - 1;
-							monotonicity_under_plain_multiplication(start, acc - 1, space);
-							assert (acc - 1) * space == acc * space - space;
-						}
-						assert start * space + space <= acc * space;
+				assert start_bounds: start <= acc - 1;
+				assert start_precondition: start < a.Length / space by {
+					reveal space_gt_0;
+					assert start <= a.Length / space - 2 by {
+						reveal start_bounds;
+						reveal first_acc_bound;
 					}
-					reveal unchanged_until_acc_times_space;
 				}
-				assert last_position_is_sum_of_old_elements(original_elements, before, start, space);
+				assert sums_calculated_for_start_in_before: last_position_is_sum_of_old_elements(original_elements, before, start, space) by {
+					reveal lengths_are_equal;
+					reveal first_acc_bound;
+					reveal space_is_power_of_2;
+					reveal len_is_power_of_2;
+					reveal space_le_len;
+					reveal computed_until_acc;
+				}
+				if_last_pos_is_sum_of_old_elements_for_a_then_it_is_for_b_with_equal_sequence(original_elements, before, a[..], start, space) by {
+					reveal lengths_are_equal;
+					reveal space_is_power_of_2;
+					reveal len_is_power_of_2;
+					reveal start_precondition;
+					reveal sums_calculated_for_start_in_before;
+					if_equal_for_slice_then_equal_for_subslice(before, a, 0, start * space, start * space + space, acc * space) by {
+						assert 0 <= start * space;
+						assert start * space <= start * space + space;
+						assert start * space + space <= acc * space by {
+							assert start + 1 <= acc by {
+								reveal start_bounds;
+							}
+							monotonicity_under_plain_multiplication(start + 1, acc, space);
+							assert (start + 1) * space == start * space + space;
+						}
+						assert acc * space <= a.Length by {
+							assert acc <= a.Length / space by {
+								reveal first_acc_bound;
+							}
+							monotonicity_under_plain_multiplication(acc, a.Length / space, space);
+							multiplicative_inverse_property_between_powers_of_2(a.Length, space) by {
+								reveal len_is_power_of_2;
+								reveal space_is_power_of_2;
+								reveal space_le_len;
+							}
+						}
+						reveal unchanged_until_acc_times_space;
+					}
+				}
 			}
 		}
 	}
 
-	lemma {:isolate_assertions} RAW_array_change_resulted_in_next_sum(original_elements: seq<int>, before: seq<int>, a: array<int>, space: nat, acc: nat)
-		requires |original_elements| == |before| == a.Length
-		requires is_power_of_2(space)
-		requires is_power_of_2(a.Length)
-		requires space * 2 <= a.Length
-		requires acc * 2 + 1 <= a.Length / space - 1
-		requires acc <= a.Length / (space * 2) - 1
+	lemma {:induction false} rest_of_previous_sums_are_kept(original_elements: seq<int>, before: seq<int>, a: array<int>, space: nat, acc: nat)
+		requires lengths_are_equal: |original_elements| == |before| == a.Length
+		requires space_mul_2_is_power_of_2: is_power_of_2(space * 2)
+		requires len_is_power_of_2: is_power_of_2(a.Length)
+		requires space_mul_2_le_len: space * 2 <= a.Length
+		requires first_acc_bound: acc <= a.Length / (space * 2) - 1
+		requires third_acc_bound: acc * 2 <= a.Length / space - 2
+		requires fourth_acc_bound: acc * space * 2 <= a.Length - space * 2
+		requires computed_from_acc_mul_2: sums_s_to_s_until_n_are_computed(original_elements, before, space, acc * 2, a.Length / space)
+		requires unchanged_from_acc_plus_1_times_2_times_space: before[(acc + 1) * 2 * space..] == a[(acc + 1) * 2 * space..]
+	//
+		ensures sums_s_to_s_until_n_are_computed(original_elements, a[..], space, (acc + 1) * 2, a.Length / space)
+	{
+		assert space_is_power_of_2: is_power_of_2(space) by {
+			reveal space_mul_2_is_power_of_2;
+		}
+		assert space_gt_0: space > 0 by {
+			reveal space_is_power_of_2;
+		}
+		assert space_lt_len: space < a.Length by {
+			reveal space_mul_2_le_len;
+			reveal space_gt_0;
+		}
+		forall start: nat {:trigger} | (acc + 1) * 2 <= start < reveal space_gt_0; a.Length / space
+			ensures
+				reveal lengths_are_equal;
+				reveal space_is_power_of_2;
+				reveal len_is_power_of_2;
+				last_position_is_sum_of_old_elements(original_elements, a[..], start, space)
+		{
+			assert start_bounds: start <= a.Length / space - 1;
+			assert sums_calculated_for_start_in_before: last_position_is_sum_of_old_elements(original_elements, before, start, space) by {
+				reveal lengths_are_equal;
+				reveal space_is_power_of_2;
+				reveal len_is_power_of_2;
+				reveal space_lt_len;
+				reveal computed_from_acc_mul_2;
+			}
+			if_last_pos_is_sum_of_old_elements_for_a_then_it_is_for_b_with_equal_sequence(original_elements, before, a[..], start, space) by {
+				reveal lengths_are_equal;
+				reveal space_is_power_of_2;
+				reveal len_is_power_of_2;
+				reveal start_bounds;
+				reveal sums_calculated_for_start_in_before;
+				if_equal_for_slice_then_equal_for_subslice(before, a, (acc + 1) * 2 * space, start * space, start * space + space, a.Length) by {
+					assert (acc + 1) * 2 * space <= start * space by {
+						assert (acc + 1) * 2 <= start;
+						monotonicity_under_plain_multiplication((acc + 1) * 2, start, space);
+					}
+					assert start * space + space <= a.Length by {
+						assert start * space + space <= a.Length / space * space by {
+							assert (start + 1) * space <= a.Length / space * space by {
+								assert start + 1 <= a.Length / space;
+								monotonicity_under_plain_multiplication(start + 1, a.Length / space, space);
+							}
+							assert (start + 1) * space == start * space + space;
+						}
+						multiplicative_inverse_property_between_powers_of_2(a.Length, space) by {
+							reveal len_is_power_of_2;
+							reveal space_is_power_of_2;
+							reveal space_lt_len;
+						}
+					}
+					reveal unchanged_from_acc_plus_1_times_2_times_space;
+				}
+			}
+		}
+	}
+	lemma {:induction false} array_change_resulted_in_next_sum(original_elements: seq<int>, before: seq<int>, a: array<int>, space: nat, acc: nat)
+		requires lengths_are_equal: |original_elements| == |before| == a.Length
+		requires space_is_power_of_2: is_power_of_2(space)
+		requires len_is_power_of_2: is_power_of_2(a.Length)
+		requires space_mul_2_le_len: space * 2 <= a.Length
+		requires first_acc_bound: acc <= a.Length / (space * 2) - 1
+		requires third_acc_bound: acc * 2 <= a.Length / space - 2
+		requires fourth_acc_bound: acc * space * 2 <= a.Length - space * 2
 
-		requires acc * space * 2 + space * 2 <= a.Length
-		requires a[acc * space * 2 + space * 2 - 1] == before[acc * space * 2 + space - 1] + before[acc * space * 2 + space * 2 - 1]
+		requires unchanged_from_acc_space_2_to_new_sum_exclusive: a[acc * space * 2..acc * space * 2 + space * 2 - 1] == before[acc * space * 2..acc * space * 2 + space * 2 - 1]
+		requires new_sum: a[acc * space * 2 + space * 2 - 1] == before[acc * space * 2 + space - 1] + before[acc * space * 2 + space * 2 - 1]
 
 		requires left_half_sum: last_position_is_sum_of_old_elements(original_elements, before, acc * 2, space)
 		requires right_half_sum: last_position_is_sum_of_old_elements(original_elements, before, acc * 2 + 1, space)
 	//
 		ensures last_position_is_sum_of_old_elements(original_elements, a[..], acc, space * 2)
 	{
-		assert a[..][acc * space * 2 + space * 2 - 1] == sum(original_elements[acc * space * 2..acc * space * 2 + space * 2]) by {
-			assert a[acc * space * 2 + space * 2 - 1] == sum(original_elements[acc * space * 2..acc * space * 2 + space * 2]) by {
-				var start: nat := acc * space * 2;
-				var mid: nat := start + space;
-				var end: nat := mid + space;
-				assert before[mid - 1] == sum(original_elements[start..mid]) by {
-					assert {:only} before[acc * 2 * space + space - 1] == sum(original_elements[acc * 2 * space..acc * 2 * space + space]) by {
-						assert |original_elements| == |before|;
-						// assert is_power_of_2(space);
-						assert is_power_of_2(|before|);
-						assert space <= |before|;
-						assert acc * 2 <= |before| / space - 1;
-						assert acc * 2 * space <= |before| - space by {
-							monotonicity_under_plain_multiplication(acc * 2, |before| / space - 1, space);
-							// calc == {
-							// 	(|before| / space - 1) * space;
-							// 	|before| / space * space - space;
-							// 	{assert |before| == |before| / space * space by {
-							// 		assert |before| % space == 0 by {
-							// 			assume false;
-							// 			power_of_2_divides_bigger_power_of_2(|before|, space);
-							// 			assume false;
-							// 		}
-							// 		assume false;
-							// 	}}
-							// 	|before| - space;
-							// }
-							assume false;
-						}
-						assume false;
-						reveal left_half_sum;
-						// assert last_position_is_sum_of_old_elements(original_elements, before, acc * 2, space) by { assume false; }
-						// assume false; // I have no idea why such an easy thing can't be proven
-					}
-					assert start == acc * 2 * space;
-					assert mid == acc * 2 * space + space;
-				}
-				assert before[end - 1] == sum(original_elements[mid..end]) by {
-					assert before[(acc * 2 + 1) * space + space - 1] == sum(original_elements[(acc * 2 + 1) * space.. (acc * 2 + 1) * space + space]) by {
-						assume false; // the thing from 16 lines ago still applies here
-					}
-					assert mid == (acc * 2 + 1) * space;
-					assert end == (acc * 2 + 1) * space + space;
-				}
-				assert a[end - 1] == sum(original_elements[start..end]) by {
-					calc == {
-						before[mid - 1] + before[end - 1];
-						sum(original_elements[start..mid]) + sum(original_elements[mid..end]);
-						{additivity_of_sum(original_elements, start, mid, end);}
-						sum(original_elements[start..end]);
-					}
+		assert 0 <= acc * (space * 2) <= acc * (space * 2) + space * 2 <= a.Length by {
+			reveal fourth_acc_bound;
+		}
+		assert a[acc * (space * 2) + space * 2 - 1] == sum(original_elements[acc * (space * 2)..acc * (space * 2) + space * 2]) by {
+			assert before[acc * (space * 2) + space - 1] == sum(original_elements[acc * (space * 2)..acc * (space * 2) + space]) by {
+				assert acc * (space * 2) == (acc * 2) * space;
+				assert before[(acc * 2) * space + space - 1] == sum(original_elements[(acc * 2) * space..(acc * 2) * space + space]) by {
+					reveal lengths_are_equal;
+					reveal space_is_power_of_2;
+					reveal len_is_power_of_2;
+					reveal third_acc_bound;
+					reveal left_half_sum;
 				}
 			}
-			assert a[..][acc * space * 2 + space * 2 - 1] == a[acc * space * 2 + space * 2 - 1];
+			assert before[acc * (space * 2) + space * 2 - 1] == sum(original_elements[acc * (space * 2) + space..acc * (space * 2) + space * 2]) by {
+				assert acc * space * 2 + space == acc * (space * 2) + space == (acc * 2 + 1) * space;
+				assert 0 <= (acc * 2 + 1) * space <= (acc * 2 + 1) * space + space <= a.Length;
+				assert before[(acc * 2 + 1) * space + space - 1] == sum(original_elements[(acc * 2 + 1) * space..(acc * 2 + 1) * space + space]) by {
+					reveal lengths_are_equal;
+					reveal space_is_power_of_2;
+					reveal len_is_power_of_2;
+					reveal third_acc_bound;
+					reveal right_half_sum;
+				}
+			}
+			additivity_of_sum_over_consecutive_slices_seq(original_elements, acc * (space * 2), acc * (space * 2) + space, acc * (space * 2) + space * 2);
+			assert acc * (space * 2) == acc * space * 2 by {
+				assert forall a: nat, b: nat, c: nat {:trigger} :: a * (b * c) == a * b * c;
+			}
+			reveal new_sum;
+		}
+		assert last_position_is_sum_of_old_elements_rec(original_elements, a[..], acc * (space * 2), space) by {
+			reveal lengths_are_equal;
+			reveal len_is_power_of_2;
+			reveal space_is_power_of_2;
+			assert a[acc * (space * 2) + space - 1] == sum(original_elements[acc * (space * 2)..acc * (space * 2) + space]) by {
+				assert before[(acc * 2) * space + space - 1] == sum(original_elements[(acc * 2) * space..(acc * 2) * space + space]) by {
+					reveal lengths_are_equal;
+					reveal space_is_power_of_2;
+					reveal len_is_power_of_2;
+					reveal third_acc_bound;
+					reveal left_half_sum;
+				}
+				assert a[acc * (space * 2) + space - 1] == before[(acc * 2) * space + space - 1] by {
+					reveal unchanged_from_acc_space_2_to_new_sum_exclusive;
+				}
+			}
+			if space > 1 {
+				var spaced2: nat :| spaced2 < space && is_power_of_2(spaced2) && space == spaced2 * 2;
+				assume {:axiom} last_position_is_sum_of_old_elements_rec(original_elements, a[..], acc * (space * 2), spaced2);
+				assume {:axiom} last_position_is_sum_of_old_elements_rec(original_elements, a[..], acc * (space * 2) + space, spaced2);
+			}
 		}
 	}
-
-	lemma commutivitativity_of_plain_multiplication(a: nat, b: nat, c: nat)
-		ensures a * b * c == a * c * b
-	{}
-	lemma last_position_is_sum_of_old_elements_intermediary(original_elements: seq<int>, before: seq<int>, a: array<int>, start: nat, space: nat, l: nat, u: nat)
-		requires |original_elements| == |before| == a.Length
+	ghost predicate last_position_is_sum_of_old_elements_rec_(original_elements: seq<int>, a: seq<int>, lower_bound: nat, space: nat)
+		decreases space
+		requires |original_elements| == |a|
 		requires is_power_of_2(space)
-		requires is_power_of_2(|before|)
-		requires space * 2 <= a.Length
-		requires start <= a.Length / space - 1
-		requires last_position_is_sum_of_old_elements(original_elements, before, start, space)
-		requires l <= u <= |before|
-		requires l == start * space
-		requires u == start * space + space
-		ensures before[u - 1] == sum(original_elements[l..u])
+		requires is_power_of_2(|a|)
+		requires lower_bound + space * 2 <= |a|
 	{
-		// assert before[start * space + space - 1] == sum(original_elements[start * space..start * space + space]);
+		a[lower_bound + space - 1] == sum(original_elements[lower_bound..lower_bound + space])
+		&&
+		(space > 1 ==> (
+			var spaced2: nat :| spaced2 < space && is_power_of_2(spaced2) && space == spaced2 * 2;
+			last_position_is_sum_of_old_elements_rec_(original_elements, a, lower_bound, spaced2)
+			&&
+			last_position_is_sum_of_old_elements_rec_(original_elements, a, lower_bound + space, spaced2)
+		))
 	}
-	lemma {:isolate_assertions} array_change_resulted_in_next_sum(original_elements: seq<int>, before: seq<int>, a: array<int>, space: nat, acc: nat, left: nat, right: nat)
-		requires |original_elements| == |before| == a.Length
+
+	lemma section_end_within_bounds_(a: seq<int>, start: nat, space: nat)
 		requires is_power_of_2(space)
-		requires is_power_of_2(a.Length)
-		requires space * 2 <= a.Length
-		requires acc * 2 + 1 <= a.Length / space - 1
-		requires acc <= a.Length / (space * 2) - 1
-
-		requires left == acc * space * 2 + space - 1
-		requires right == acc * space * 2 + space * 2 - 1
-		requires left <= right < a.Length
-		requires a[right] == before[left] + before[right]
-
-		requires left_half_sum: last_position_is_sum_of_old_elements(original_elements, before, acc * 2, space)
-		requires right_half_sum: last_position_is_sum_of_old_elements(original_elements, before, acc * 2 + 1, space)
+		requires is_power_of_2(|a|)
+		requires start < |a| / space
 	//
-		ensures last_position_is_sum_of_old_elements(original_elements, a[..], acc, space * 2)
+		ensures start * space + space <= |a|
 	{
-		assert a[..][acc * space * 2 + space * 2 - 1] == sum(original_elements[acc * space * 2..acc * space * 2 + space * 2]) by {
-			var start: nat := acc * space * 2;
-			assert a[..][right] == sum(original_elements[start..right + 1]) by {
-				assert a[right] == sum(original_elements[start..right + 1]) by {
-					assert a[right] == sum(original_elements[start..right + 1]) by {
-						assert before[left] == sum(original_elements[start..left + 1]) by {
-							last_position_is_sum_of_old_elements_intermediary(original_elements, before, a, acc * 2, space, start, left + 1) by {
-								calc == {
-									start;
-									acc * space * 2;
-									{
-										var t: (nat, nat, nat) -> bool := (a, b, c) => true;
-										assert forall a: nat, b: nat, c: nat {:trigger t(a, b, c)} :: a * b * c == a * c * b;
-										assert t(acc, space, 2);
+		monotonicity_under_plain_multiplication(start, |a| / space - 1, space);
+		multiplicative_inverse_property_between_powers_of_2(|a|, space);
+	}
+
+	ghost predicate last_position_is_sum_of_old_elements_(original_elements: seq<int>, a: seq<int>, start: nat, space: nat)
+		requires |original_elements| == |a|
+		requires is_power_of_2(space)
+		requires is_power_of_2(|a|)
+		requires start < |a| / space
+	{
+		section_end_within_bounds(a, start, space);
+		a[start * space + space - 1] == sum(original_elements[start * space..start * space + space])
+		&&
+		(space > 1 ==> (
+			var spaced2: nat :| spaced2 < space && is_power_of_2(spaced2) && space == spaced2 * 2;
+			assert start * space + spaced2 * 2 <= |a|;
+			last_position_is_sum_of_old_elements_rec_(original_elements, a, start * space, spaced2)
+		))
+	}
+
+	lemma {:induction false} acc_at_end_after_loop(acc: nat, a: array<int>, left: nat, space: nat)
+		requires left_within_bounds: left >= a.Length
+		requires left_wrt_acc: left == acc * space * 2 + space - 1
+		requires acc_lt_len_div_space_mul_2: acc <= a.Length / (space * 2)
+		requires len_is_power_of_2: is_power_of_2(a.Length)
+		requires space_is_power_of_2: is_power_of_2(space)
+		requires space_lt_len: space <= a.Length / 2
+	//
+		ensures acc == a.Length / (space * 2)
+	{
+		assert acc == a.Length / (space * 2) by {
+			assert space * 2 > 0 by {
+				reveal space_is_power_of_2;
+			}
+			if acc < a.Length / (space * 2) {
+				assert left < a.Length by {
+					assert left <= a.Length - space - 1 by {
+						assert acc * space * 2 <= a.Length - space * 2 by {
+							assert acc * space * 2 <= a.Length / (space * 2) * (space * 2) - space * 2 by {
+								assert acc * space * 2 <= (a.Length / (space * 2) - 1) * (space * 2) by {
+									assert acc <= a.Length / (space * 2) - 1 by {
+										reveal acc_lt_len_div_space_mul_2;
 									}
-									acc * 2 * space;
+									monotonicity_under_plain_multiplication(acc, a.Length / (space * 2) - 1, space * 2);
 								}
-								reveal left_half_sum;
+							}
+							multiplicative_inverse_property_between_powers_of_2(a.Length, space * 2) by {
+								reveal len_is_power_of_2;
+								reveal space_is_power_of_2;
+								reveal space_lt_len;
 							}
 						}
-						assert before[right] == sum(original_elements[left + 1..right + 1]) by {
-							last_position_is_sum_of_old_elements_intermediary(original_elements, before, a, acc * 2 + 1, space, left + 1, right + 1) by {
-								calc == {
-									left + 1;
-									acc * space * 2 + space - 1 + 1;
-									acc * space * 2 + space;
-									{
-										var t: (nat, nat, nat) -> bool := (a, b, c) => true;
-										assert forall a: nat, b: nat, c: nat {:trigger t(a, b, c)} :: a * b * c + b == (a * c + 1) * b;
-										assert t(acc, space, 2);
-									}
-									(acc * 2 + 1) * space;
-								}
-								reveal right_half_sum;
-							}
-						}
-						calc == {
-							before[left] + before[right];
-							sum(original_elements[start..left + 1]) + sum(original_elements[left + 1..right + 1]);
-							{additivity_of_sum(original_elements, start, left + 1, right + 1);}
-							sum(original_elements[start..right + 1]);
-						}
+						reveal left_wrt_acc;
 					}
 				}
-				assert a[..][right] == a[right];
+				reveal left_within_bounds;
+			} else {
+				reveal acc_lt_len_div_space_mul_2;
 			}
 		}
 	}
 //
 
-lemma acc_times_2_plus_1_le_a_Length_div_space_minus_1(acc: nat, space: nat, a: array<int>, left: nat)
-	requires left == acc * space * 2 + space - 1
-	requires is_power_of_2(a.Length)
-	requires is_power_of_2(space)
-	requires space <= a.Length
-	requires left <= a.Length - space - 1
-	ensures acc * 2 + 1 <= a.Length / space - 1
+method upsweep_inner_inner_loop(ghost original_elements: seq<int>, a: array<int>, space: nat, left: nat, acc: nat)
+	modifies a
+	requires lengths_are_equal: |original_elements| == a.Length
+	requires len_is_power_of_2: is_power_of_2(a.Length)
+	requires space_is_power_of_2: is_power_of_2(space)
+	requires space_mul_2_le_len: 1 <= space <= a.Length / 2
+
+	requires left_wrt_acc: left == acc * space * 2 + space - 1
+	requires left_bound: space - 1 <= left <= a.Length - space - 1
+	requires fourth_acc_bound: 0 <= acc * space * 2 <= a.Length - space * 2
+	requires third_acc_bound: 0 <= acc * 2 <= a.Length / space - 2
+	requires second_acc_bound: 0 <= acc * space <= a.Length / 2 - space
+	requires first_acc_bound: 0 <= acc <= a.Length / (space * 2) - 1
+	requires computed_until_acc: sums_s_to_s_until_n_are_computed(original_elements, a[..], space * 2, 0, acc)
+	requires computed_from_acc_mul_2: sums_s_to_s_until_n_are_computed(original_elements, a[..], space, acc * 2, a.Length / space)
+//
+	ensures sums_s_to_s_until_n_are_computed(original_elements, a[..], space * 2, 0, acc + 1)
+	ensures sums_s_to_s_until_n_are_computed(original_elements, a[..], space, (acc + 1) * 2, a.Length / space)
 {
-	assert acc * 2 <= a.Length / space - 2 by {
-		assert acc * 2 * space <= (a.Length / space - 2) * space by {
-			assert acc * 2 * space + space - 1 <= (a.Length / space - 2) * space + space - 1 by {
-				assert left == acc * 2 * space + space - 1;
-				calc == {
-					(a.Length / space - 2) * space + space - 1;
-					a.Length / space * space - 2 * space + space - 1;
-					a.Length / space * space - space - 1;
-					{assert a.Length == a.Length / space * space by {
-						assert a.Length % space == 0 by {
-							power_of_2_divides_bigger_power_of_2(a.Length, space);
-						}
-					}}
-					a.Length - space - 1;
-				}
+	var right: nat := left + space;
+	ghost var before: seq<int> := a[..];
+	assert before_small_sums: sums_s_to_s_until_n_are_computed(original_elements, before, space, acc * 2, a.Length / space) by {
+		reveal lengths_are_equal;
+		reveal len_is_power_of_2;
+		reveal space_is_power_of_2;
+		reveal computed_from_acc_mul_2;
+	}
+	a[right] := a[left] + a[right] by {
+		reveal left_wrt_acc;
+		reveal fourth_acc_bound;
+	}
+	calculated_sums_for_currect_iteration(original_elements, before, a, space * 2, acc) by {
+		reveal lengths_are_equal;
+		reveal space_is_power_of_2;
+		reveal len_is_power_of_2;
+		reveal space_mul_2_le_len;
+		reveal first_acc_bound;
+		reveal computed_until_acc;
+		assert before[..acc * (space * 2)] == a[..acc * (space * 2)] by {
+			assert before[..left - space + 1] == a[..left - space + 1] by {
+				reveal left_wrt_acc;
+				reveal fourth_acc_bound;
+			}
+			calc == {
+				left - space + 1;
+				{ reveal left_wrt_acc; }
+				acc * space * 2 + space - 1 - space + 1;
+				acc * space * 2;
+				acc * (space * 2);
 			}
 		}
-		var t: (nat, nat, nat) -> bool := (a, b, c) => true;
-		assert {:split_here} forall a: nat, b: nat, c: nat {:trigger t(a, b, c)} :: c > 0 && a * c <= b * c ==> a <= b;
-		assert t(acc * 2, a.Length / space - 2, space);
+		array_change_resulted_in_next_sum(original_elements, before, a, space, acc) by {
+			reveal lengths_are_equal;
+			reveal space_is_power_of_2;
+			reveal len_is_power_of_2;
+			reveal space_mul_2_le_len;
+			reveal first_acc_bound;
+			reveal third_acc_bound;
+			reveal fourth_acc_bound;
+
+			assert a[acc * space * 2 + space * 2 - 1] == before[acc * space * 2 + space - 1] + before[acc * space * 2 + space * 2 - 1] by {
+				assert a[right] == before[left] + before[right];
+				reveal left_wrt_acc;
+			}
+
+			reveal before_small_sums;
+		}
+	}
+	rest_of_previous_sums_are_kept(original_elements, before, a, space, acc) by {
+		reveal lengths_are_equal;
+		reveal space_is_power_of_2;
+		reveal len_is_power_of_2;
+		reveal space_mul_2_le_len;
+		reveal first_acc_bound;
+		reveal third_acc_bound;
+		reveal fourth_acc_bound;
+		reveal computed_from_acc_mul_2;
+		assert before[(acc + 1) * 2 * space..] == a[(acc + 1) * 2 * space..] by {
+			assert before[right + 1..] == a[right + 1..];
+			calc == {
+				right + 1;
+				left + space + 1;
+				{ reveal left_wrt_acc; }
+				acc * space * 2 + space - 1 + space + 1;
+				acc * space * 2 + space * 2;
+				(acc + 1) * space * 2;
+				{ assert forall a: nat, b: nat, c: nat :: a * b * c == a * c * b; }
+				(acc + 1) * 2 * space;
+			}
+		}
 	}
 }
 
-method {:isolate_assertions} upsweep_inner_loop(original_elements: seq<int>, a: array<int>, space: nat)
+method upsweep_inner_loop(ghost original_elements: seq<int>, a: array<int>, space: nat)
 	modifies a
 	requires |original_elements| == a.Length
 	requires is_power_of_2(a.Length)
 	requires is_power_of_2(space)
 	requires 1 <= space <= a.Length / 2
-	requires a.Length % space == 0
-	requires (a.Length - 1 - (space - 1)) % space == 0
 	requires sums_s_to_s_until_n_are_computed(original_elements, a[..], space, 0, a.Length / space)
+//
+	ensures sums_s_to_s_until_n_are_computed(original_elements, a[..], space * 2, 0, a.Length / (space * 2))
 {
 	var left: nat := space - 1;
 	var acc: nat := 0;
-	assert a.Length % (space * 2) == 0 by {
-		assert a.Length >= space * 2;
-		assert is_power_of_2(a.Length);
-		assert is_power_of_2(space * 2);
-		power_of_2_divides_bigger_power_of_2(a.Length, space * 2);
-	}
+	sums_s_to_s_are_computed(original_elements, a, space, acc);
 	while left < a.Length
 		invariant space - 1 <= left <= a.Length + space - 1
 		invariant left == acc * space * 2 + space - 1
 		invariant 0 <= acc * space * 2 <= a.Length
 		invariant 0 <= acc * 2 <= a.Length / space
+		invariant 0 <= acc * space <= a.Length / 2
 		invariant 0 <= acc <= a.Length / (space * 2)
 		invariant sums_s_to_s_until_n_are_computed(original_elements, a[..], space * 2, 0, acc)
 		invariant sums_s_to_s_until_n_are_computed(original_elements, a[..], space, acc * 2, a.Length / space)
 	{
-		assert left <= a.Length - space - 1 by {
-			left_in_loop_lt_left_outside_loop(left, acc, a, space);
+		acc_bounds_within_loop(left, acc, a, space);
+		left_bounds_within_loop(left, acc, a, space);
+		upsweep_inner_inner_loop(original_elements, a, space, left, acc);
+		calc == {
+			left + space * 2;
+			acc * space * 2 + space - 1 + space * 2;
+			(acc + 1) * space * 2 + space - 1;
 		}
-		assert acc <= a.Length / (space * 2) - 1 by {
-			acc_bounds_within_loop(left, acc, a, space);
-		}
-		var right: nat := left + space;
-		ghost var before: seq<int> := a[..];
-		assert/* before_big_sums:*/ sums_s_to_s_until_n_are_computed(original_elements, before, space * 2, 0, acc);
-		assert before_small_sums: sums_s_to_s_until_n_are_computed(original_elements, before, space, acc * 2, a.Length / space);
-		a[right] := a[left] + a[right];
-		assert left + space * 2 == (acc + 1) * space * 2 + space - 1;
-		calculated_sums_for_currect_iteration(original_elements, before, a, space * 2, acc) by {
-			array_change_resulted_in_next_sum(original_elements, before, a, space, acc, left, right) by {
-				assert |original_elements| == |before| == a.Length;
-				// assert is_power_of_2(space);
-				assert is_power_of_2(a.Length);
-				// assert space * 2 <= a.Length;
-				assert acc * 2 + 1 <= a.Length / space - 1 by {
-					acc_times_2_plus_1_le_a_Length_div_space_minus_1(acc, space, a, left);
-				}
-				assert acc <= a.Length / (space * 2) - 1;
-				assert a[acc * space * 2 + space * 2 - 1] == before[acc * space * 2 + space - 1] + before[acc * space * 2 + space * 2 - 1];
-				// assert last_position_is_sum_of_old_elements(original_elements, before, acc * 2, space) by { assume false; }
-				assert last_position_is_sum_of_old_elements(original_elements, before, acc * 2, space) by {
-					reveal before_small_sums;
-					// assert acc * 2 >= acc * 2;
-				}
-				assert last_position_is_sum_of_old_elements(original_elements, before, acc * 2 + 1, space) by {
-					reveal before_small_sums;
-					assume acc * 2 <= acc * 2 + 1 < a.Length / space;
-				}
-			}
-		}
-		assume sums_s_to_s_until_n_are_computed(original_elements, a[..], space, acc * 2 + 2, a.Length / space);
 		left := left + space * 2;
 		acc := acc + 1;
-		// assume left + space <= a.Length - 1;
-		// assert {:only} acc <= a.Length / (space * 2) by {
-		// 	assert acc * space * 2 <= a.Length;
-		// 	var t: (nat, nat, nat) -> bool := (a, b, c) => true;
-		// 	{
-		// 		assert {:focus} forall a: nat, b: nat, c: nat {:trigger t(a, b, c)} :: c > 0 && a * c <= b && b % c == 0 ==> a <= b / c;
-		// 	}
-		// 	assert t(acc, a.Length, space * 2);
-		// 	assume false;
-		// }
-		// assume sums_s_to_s_until_n_are_computed(original_elements, a, space * 2, 0, acc);
 	}
+	acc_at_end_after_loop(acc, a, left, space);
 }
 
-method upsweep_inner_loop_minus_1_RU_(original_elements: seq<int>, a: array<int>, space: nat)
-	modifies a
-	requires |original_elements| == a.Length
-	requires is_power_of_2(a.Length)
-	requires is_power_of_2(space)
-	requires 1 <= space <= a.Length / 2
-	requires a.Length % space == 0
-	requires (a.Length - 1 - (space - 1)) % space == 0
-	requires sums_s_to_s_until_n_are_computed(original_elements, a[..], space, 0, a.Length / space)
-{
-	var left: nat := space - 1;
-	var acc: nat := 0;
-	assert a.Length % (space * 2) == 0 by {
-		assert a.Length >= space * 2;
-		assert is_power_of_2(a.Length);
-		assert is_power_of_2(space * 2);
-		power_of_2_divides_bigger_power_of_2(a.Length, space * 2);
-	}
-	while left < a.Length
-		invariant space - 1 <= left <= a.Length + space - 1
-		invariant left == acc * space * 2 + space - 1
-		invariant 0 <= acc * space * 2 <= a.Length
-		invariant 0 <= acc * 2 <= a.Length / space
-		invariant 0 <= acc <= a.Length / (space * 2)
-		invariant sums_s_to_s_until_n_are_computed(original_elements, a[..], space * 2, 0, acc)
-		invariant sums_s_to_s_until_n_are_computed(original_elements, a[..], space, acc * 2, a.Length / space)
-	{
-		assert left <= a.Length - space - 1 by {
-			left_in_loop_lt_left_outside_loop(left, acc, a, space);
-		}
-		assert acc <= a.Length / (space * 2) - 1 by {
-			acc_bounds_within_loop(left, acc, a, space);
-		}
-		var right: nat := left + space;
-		ghost var before: seq<int> := a[..];
-		assert sums_s_to_s_until_n_are_computed(original_elements, before, space * 2, 0, acc);
-		a[right] := a[left] + a[right];
-		assert left + space * 2 == (acc + 1) * space * 2 + space - 1;
-		calculated_sums_for_currect_iteration(original_elements, before, a, space * 2, acc) by {
-			array_change_resulted_in_next_sum(original_elements, before, a, space, acc, left, right) by {
-				assert |original_elements| == |before| == a.Length;
-				// assert is_power_of_2(space);
-				assert is_power_of_2(a.Length);
-				// assert space * 2 <= a.Length;
-				assert acc * 2 + 1 <= a.Length / space - 1 by {
-					acc_times_2_plus_1_le_a_Length_div_space_minus_1(acc, space, a, left);
-				}
-				assert acc <= a.Length / (space * 2) - 1;
-				assert a[acc * space * 2 + space * 2 - 1] == before[acc * space * 2 + space - 1] + before[acc * space * 2 + space * 2 - 1];
-				assert last_position_is_sum_of_old_elements(original_elements, before, acc * 2, space) by { assume false; }
-				assert last_position_is_sum_of_old_elements(original_elements, before, acc * 2 + 1, space) by { assume false; }
-			}
-		}
-		assume sums_s_to_s_until_n_are_computed(original_elements, a[..], space, acc * 2 + 2, a.Length / space);
-		left := left + space * 2;
-		acc := acc + 1;
-		// assume left + space <= a.Length - 1;
-		// assert {:only} acc <= a.Length / (space * 2) by {
-		// 	assert acc * space * 2 <= a.Length;
-		// 	var t: (nat, nat, nat) -> bool := (a, b, c) => true;
-		// 	{
-		// 		assert {:focus} forall a: nat, b: nat, c: nat {:trigger t(a, b, c)} :: c > 0 && a * c <= b && b % c == 0 ==> a <= b / c;
-		// 	}
-		// 	assert t(acc, a.Length, space * 2);
-		// 	assume false;
-		// }
-		// assume sums_s_to_s_until_n_are_computed(original_elements, a, space * 2, 0, acc);
-	}
-}
-
-method {:isolate_assertions} upsweep_iter(a: array<int>)
+method upsweep_iter(a: array<int>)
 	modifies a
 	requires is_power_of_2(a.Length)
+//
 	ensures a[a.Length - 1] == sum(old(a[..]))
 {
 	ghost var original_elements: seq<int> := a[..];
 	var space: nat := 1;
-	// assume false;
+	var log_space: nat := 0;
+	assert sums_s_to_s_until_n_are_computed(original_elements, a[..], space, 0, a.Length / space) by {
+		sums_of_1_are_computed_at_the_beginning(original_elements, a);
+	}
 	while space < a.Length
 		invariant is_power_of_2(space)
+		invariant is_2_to_the_power_of(space, log_space)
 		invariant 1 <= space <= a.Length
-		invariant a.Length % space == 0
-		invariant sums_s_to_s_until_n_are_computed(original_elements, a[..], space, space - 1, a.Length)
+		invariant 0 <= log_space <= log_of_power_of_2(a.Length)
+		invariant space == two_to_the_power_of(log_space)
+		invariant sums_s_to_s_until_n_are_computed(original_elements, a[..], space, 0, a.Length / space)
 	{
-		assert space <= a.Length / 2;
-		var left: nat := space - 1;
-		var acc: nat := 0;
-		assert a.Length % (space * 2) == 0 by { power_of_2_divides_bigger_power_of_2(a.Length, space * 2); }
-		assert (left - space + 1) % (space * 2) == 0 by {
-			assert 0 % (space * 2) == 0;
-			assert left - space + 1 == 0 by {
-				assert left == space - 1;
-			}
-		}
-		assert (space * 2 - 1) % (space * 2) == space * 2 - 1 by {
-			modulo_persists_while_steps_mul_by_y(-1, 1, space * 2);
-			add_modulo(0, space * 2, space * 2 - 1);
-		}
-		assume sums_s_to_s_until_n_are_computed(original_elements, a[..], space * 2, space * 2 - 1, left - space + 1);
-		while left < a.Length
-			invariant space - 1 <= left <= a.Length + space - 1
-			invariant left - space + 1 == acc * space * 2
-			invariant 0 <= left - space + 1 <= a.Length
-			invariant 0 <= acc <= a.Length
-			invariant (left - space + 1) % (space * 2) == 0
-			// invariant {:focus} sums_s_to_s_until_n_are_computed(original_elements, a, space * 2, space * 2 - 1, left - space + 1)
-			// invariant sums_s_to_s_until_n_are_computed(original_elements, a, space, left + space, a.Length)
-		{
-			assert left <= a.Length - space - 1 by { assume false; }
-			var right: nat := left + space;
-			a[right] := a[left] + a[right];
-
-			// assert {:focus} sums_s_to_s_until_n_are_computed(original_elements, a, space * 2, space * 2 - 1, left - space + 1);
-			// assume {:focus} sums_s_to_s_until_n_are_computed(original_elements, a, space * 2, space * 2 - 1, left - space + 1 + space * 2);
-			assert left + space * 2 - space + 1 == (acc + 1) * space * 2;
-			left := left + space * 2;
-			acc := acc + 1;
-			assert (left - space + 1) % (space * 2) == 0 by {
-				assert (acc * space * 2) % (space * 2) == 0 by {
-					assert (acc * (space * 2) + 0) % (space * 2) == 0 by {
-						add_modulo(acc, space * 2, 0);
+		assert log_space < log_of_power_of_2(a.Length) by {
+			if log_space == log_of_power_of_2(a.Length) {
+				assert space == a.Length by {
+					assert space == two_to_the_power_of(log_space);
+					assert a.Length == two_to_the_power_of(log_of_power_of_2(a.Length)) by {
+						exponent_logarithm_identity(a.Length);
 					}
-					assert acc * space * 2 == acc * (space * 2) + 0;
+					monotonicity_under_logarithmization_between_powers_of_2(space, a.Length);
 				}
-				assert left - space + 1 == acc * space * 2;
 			}
 		}
+		assert space <= a.Length / 2 by {
+			monotonicity_under_logarithmization_between_powers_of_2(space, a.Length);
+		}
+		upsweep_inner_loop(original_elements, a, space);
 		space := space * 2;
-		power_of_2_divides_bigger_power_of_2(a.Length, space);
-		assert sums_s_to_s_until_n_are_computed(original_elements, a[..], space, space - 1, a.Length) by { assume false; }
+		log_space := log_space + 1;
 	}
 	assert a[a.Length - 1] == sum(original_elements) by {
-		assert a[space - 1] == sum(original_elements[0..0 + space]) by {
-			// assert forall start: nat :: start % space == 0 && start + space - 1 < a.Length ==> a[start + space - 1] == sum(original_elements[start..start + space]);
-			assert 0 % space == 0;
-		}
 		assert space == a.Length;
+		assert a[space - 1] == sum(original_elements[0..0 + space]) by {
+			assert last_position_is_sum_of_old_elements(original_elements, a[..], 0, space);// by {
+				// assert forall start: nat {:trigger} :: 0 <= start < a.Length / space ==> last_position_is_sum_of_old_elements(original_elements, a[..], start, space) by {
+					// assert sums_s_to_s_until_n_are_computed(original_elements, a[..], space, 0, a.Length / space);
+				// }
+				// assert a.Length / space == 1;
+			// }
+		}
 		assert original_elements == original_elements[0..0 + space];
 	}
 }
